@@ -140,42 +140,51 @@
                     </div>
 
                     <div class="w-full">
-                        <table class="main-table w-full border-collapse border border-black text-center">
-                            <thead class="bg-gray-50">
-                                <tr class="text-[10px]">
-                                    <th class="border border-black p-1 w-[4%]">번호</th>
-                                    <th class="border border-black p-1 w-[8%]">성명</th>
-                                    <th class="border border-black p-1 w-[7%]">날짜</th>
-                                    <th class="border border-black p-1 w-[10%]">출결구분</th>
-                                    <th class="border border-black p-1 w-[32%]">교시</th>
-                                    <th class="border border-black p-1 w-[12%]">상세 사유</th>
-                                    <th class="border border-black p-1 w-[7%]">방법</th>
-                                    <th class="border border-black p-1 w-[11%]">증빙서류</th>
-                                    <th class="border border-black p-1 w-[4%]">제출</th>
-                                    <th class="border border-black p-1 w-[5%]">확인</th>
-                                </tr>
-                            </thead>
-                            <tbody id="monthlyTableBody" class="text-[10px]"></tbody>
-                        </table>
-                    </div>
+                <table class="main-table w-full border-collapse border border-black text-center">
+                    <thead class="bg-gray-50">
+                        <tr class="text-[10px]">
+                            <th class="border border-black p-1 w-[4%]">번호</th>
+                            <th class="border border-black p-1 w-[8%]">성명</th>
+                            <th class="border border-black p-1 w-[7%]">날짜</th>
+                            <th class="border border-black p-1 w-[10%]">출결구분</th>
+                            <th class="border border-black p-1 w-[32%]">교시</th>
+                            <th class="border border-black p-1 w-[12%]">상세 사유</th>
+                            <th class="border border-black p-1 w-[7%]">방법</th>
+                            <th class="border border-black p-1 w-[11%]">증빙서류</th>
+                            <th class="border border-black p-1 w-[4%]">제출</th>
+                            <th class="border border-black p-1 w-[5%]">확인</th>
+                        </tr>
+                    </thead>
+                    <tbody id="monthlyTableBody" class="text-[10px]"></tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+
+    <!-- 나이스복붙용 -->
+    <div id="content-neis" class="tab-content hidden space-y-6">
+        <div class="flex flex-wrap items-center justify-between bg-white p-4 rounded-xl shadow-sm border no-print gap-4">
+            <div class="flex items-center gap-4">
+                <label class="font-bold text-gray-700">조회 방식:</label>
+                <select id="neisFilterType" onchange="toggleNeisFilter(); renderNeis()" class="border rounded-lg px-3 py-2 outline-none focus:ring-2 focus:ring-blue-500 font-medium text-sm">
+                    <option value="date" selected>일별 조회</option>
+                    <option value="month">월별 조회</option>
+                </select>
+                <div id="neisMonthWrapper" class="hidden">
+                    <input type="month" id="neisMonth" onchange="renderNeis()" class="border rounded-lg px-3 py-2">
+                </div>
+                <div id="neisDateWrapper">
+                    <input type="date" id="neisDate" onchange="renderNeis()" class="border rounded-lg px-3 py-2">
                 </div>
             </div>
+        </div>
+        <div id="neisContainer" class="bg-white p-8 border shadow-sm mx-auto rounded-xl space-y-6">
+            <div class="text-center py-10 text-gray-400 font-medium">조회할 기간을 선택하면 데이터가 나타납니다.</div>
+        </div>
+    </div>
 
-            <!-- 나이스복붙용 -->
-            <div id="content-neis" class="tab-content hidden space-y-6">
-                <div class="flex items-center justify-between bg-white p-4 rounded-xl shadow-sm border no-print">
-                    <div class="flex items-center gap-4">
-                        <label class="font-bold">월 선택:</label>
-                        <input type="month" id="neisMonth" onchange="renderNeis()" class="border rounded-lg px-3 py-2">
-                    </div>
-                </div>
-                <div id="neisContainer" class="bg-white p-8 border shadow-sm mx-auto rounded-xl space-y-6">
-                    <div class="text-center py-10 text-gray-400 font-medium">월을 선택하면 데이터가 나타납니다.</div>
-                </div>
-            </div>
-
-            <!-- 누적관리 -->
-            <div id="content-stats" class="tab-content hidden space-y-6">
+    <!-- 누적관리 -->
+    <div id="content-stats" class="tab-content hidden space-y-6">
                 <div class="grid grid-cols-1 lg:grid-cols-4 gap-6">
                     <!-- 왼쪽 사이드바: 학생 선택 -->
                     <div class="bg-white rounded-xl shadow-sm border overflow-hidden flex flex-col h-[700px]">
@@ -548,16 +557,40 @@
         function updateEntryFromMonthly(id, key, val) { state.attendance = state.attendance.map(a => a.id === id ? {...a, [key]: val} : a); save(); renderMonthly(); }
         function toggleSubmitted(id) { state.attendance = state.attendance.map(a => a.id === id ? {...a, submitted: !a.submitted} : a); save(); renderMonthly(); }
 
+        // 나이스 복붙용 조회 방식 토글
+        function toggleNeisFilter() {
+            const type = document.getElementById('neisFilterType').value;
+            if (type === 'month') {
+                document.getElementById('neisMonthWrapper').classList.remove('hidden');
+                document.getElementById('neisDateWrapper').classList.add('hidden');
+            } else {
+                document.getElementById('neisMonthWrapper').classList.add('hidden');
+                document.getElementById('neisDateWrapper').classList.remove('hidden');
+            }
+        }
+
         // 나이스 복붙용 렌더링
         function renderNeis() {
-            const month = document.getElementById('neisMonth').value;
-            if(!month) return;
+            const filterType = document.getElementById('neisFilterType') ? document.getElementById('neisFilterType').value : 'date';
+            let filtered = [];
+            let dateTitle = "";
+
+            if (filterType === 'month') {
+                const month = document.getElementById('neisMonth').value;
+                if(!month) return;
+                filtered = state.attendance.filter(a => a.date.startsWith(month)).sort((a,b) => a.date.localeCompare(b.date));
+                dateTitle = `${month.split('-')[0]}년 ${month.split('-')[1]}월`;
+            } else {
+                const date = document.getElementById('neisDate').value;
+                if(!date) return;
+                filtered = state.attendance.filter(a => a.date === date);
+                dateTitle = `${date.split('-')[0]}년 ${date.split('-')[1]}월 ${date.split('-')[2]}일`;
+            }
             
             const container = document.getElementById('neisContainer');
-            const filtered = state.attendance.filter(a => a.date.startsWith(month)).sort((a,b) => a.date.localeCompare(b.date));
             
             if (filtered.length === 0) {
-                container.innerHTML = '<div class="text-center py-10 text-gray-400 font-medium">해당 월에 출결 데이터가 없습니다.</div>';
+                container.innerHTML = `<div class="text-center py-10 text-gray-400 font-medium">${dateTitle}에 해당하는 출결 데이터가 없습니다.</div>`;
                 return;
             }
 
@@ -755,10 +788,18 @@
 
         window.onload = () => {
             const now = new Date();
-            document.getElementById('selectedDate').value = now.toISOString().slice(0, 10);
-            document.getElementById('currentMonth').value = now.toISOString().slice(0, 7);
+            const dateStr = now.toISOString().slice(0, 10);
+            const monthStr = now.toISOString().slice(0, 7);
+
+            document.getElementById('selectedDate').value = dateStr;
+            document.getElementById('currentMonth').value = monthStr;
+            
             const neisMonthEl = document.getElementById('neisMonth');
-            if(neisMonthEl) neisMonthEl.value = now.toISOString().slice(0, 7);
+            if(neisMonthEl) neisMonthEl.value = monthStr;
+            
+            const neisDateEl = document.getElementById('neisDate');
+            if(neisDateEl) neisDateEl.value = dateStr;
+
             updateTeacherUI();
             switchTab('daily');
         };
