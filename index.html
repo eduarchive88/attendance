@@ -61,6 +61,7 @@
             <nav class="max-w-7xl mx-auto px-4 flex border-t overflow-x-auto scroll-hide">
                 <button onclick="switchTab('daily')" class="tab-btn px-6 py-3 font-medium text-gray-500 transition" id="tab-daily">일일출결관리</button>
                 <button onclick="switchTab('monthly')" class="tab-btn px-6 py-3 font-medium text-gray-500 transition" id="tab-monthly">월출결관리</button>
+                <button onclick="switchTab('neis')" class="tab-btn px-6 py-3 font-medium text-gray-500 transition" id="tab-neis">나이스복붙용</button>
                 <button onclick="switchTab('stats')" class="tab-btn px-6 py-3 font-medium text-gray-500 transition" id="tab-stats">누적관리</button>
                 <button onclick="switchTab('data')" class="tab-btn px-6 py-3 font-medium text-gray-500 transition" id="tab-data">데이터 및 시간표 설정</button>
             </nav>
@@ -157,6 +158,19 @@
                             <tbody id="monthlyTableBody" class="text-[10px]"></tbody>
                         </table>
                     </div>
+                </div>
+            </div>
+
+            <!-- 나이스복붙용 -->
+            <div id="content-neis" class="tab-content hidden space-y-6">
+                <div class="flex items-center justify-between bg-white p-4 rounded-xl shadow-sm border no-print">
+                    <div class="flex items-center gap-4">
+                        <label class="font-bold">월 선택:</label>
+                        <input type="month" id="neisMonth" onchange="renderNeis()" class="border rounded-lg px-3 py-2">
+                    </div>
+                </div>
+                <div id="neisContainer" class="bg-white p-8 border shadow-sm mx-auto rounded-xl space-y-6">
+                    <div class="text-center py-10 text-gray-400 font-medium">월을 선택하면 데이터가 나타납니다.</div>
                 </div>
             </div>
 
@@ -284,6 +298,15 @@
             '몸살': '진료확인서'
         };
 
+        // 조사 판별 함수 ('로'/'으로')
+        function getJosa(word) {
+            if (!word) return '로';
+            const lastChar = word.charCodeAt(word.length - 1);
+            if (lastChar < 0xAC00 || lastChar > 0xD7A3) return '로'; 
+            const jongseong = (lastChar - 0xAC00) % 28;
+            return (jongseong === 0 || jongseong === 8) ? '로' : '으로';
+        }
+
         function getInitialState() {
             let students = JSON.parse(localStorage.getItem('att_students') || '[]');
             let attendance = JSON.parse(localStorage.getItem('att_attendance') || '[]');
@@ -337,6 +360,7 @@
             document.getElementById('tab-' + tab).classList.add('tab-active');
             if(tab === 'daily') renderDaily();
             if(tab === 'monthly') renderMonthly();
+            if(tab === 'neis') renderNeis();
             if(tab === 'stats') renderStats();
             if(tab === 'data') renderData();
         }
@@ -524,6 +548,93 @@
         function updateEntryFromMonthly(id, key, val) { state.attendance = state.attendance.map(a => a.id === id ? {...a, [key]: val} : a); save(); renderMonthly(); }
         function toggleSubmitted(id) { state.attendance = state.attendance.map(a => a.id === id ? {...a, submitted: !a.submitted} : a); save(); renderMonthly(); }
 
+        // 나이스 복붙용 렌더링
+        function renderNeis() {
+            const month = document.getElementById('neisMonth').value;
+            if(!month) return;
+            
+            const container = document.getElementById('neisContainer');
+            const filtered = state.attendance.filter(a => a.date.startsWith(month)).sort((a,b) => a.date.localeCompare(b.date));
+            
+            if (filtered.length === 0) {
+                container.innerHTML = '<div class="text-center py-10 text-gray-400 font-medium">해당 월에 출결 데이터가 없습니다.</div>';
+                return;
+            }
+
+            const grouped = {};
+            state.students.sort((a,b) => parseInt(a.num) - parseInt(b.num)).forEach(s => {
+                const entries = filtered.filter(f => f.studentId === s.id);
+                if(entries.length > 0) grouped[s.id] = entries;
+            });
+
+            let html = '';
+            for(let sid in grouped) {
+                const s = state.students.find(x => x.id === sid);
+                const entries = grouped[sid];
+                
+                html += `<div class="mb-6">
+                            <h4 class="font-bold text-lg text-blue-800 mb-3 border-b pb-2 border-blue-100">${s.num}번 ${s.name}</h4>
+                            <div class="space-y-3">`;
+                
+                entries.forEach((e) => {
+                    const d = new Date(e.date);
+                    const dateString = `${d.getMonth() + 1}/${d.getDate()}`;
+                    const typeString = `${e.cat}${e.type}`; 
+                    
+                    let periodStr = '';
+                    if (e.periods && e.periods.length > 0) {
+                        if (e.type === '조퇴') {
+                            periodStr = `(${e.periods[0]}부터)`;
+                        } else if (e.type === '지각') {
+                            periodStr = `(${e.periods[e.periods.length - 1]}까지)`;
+                        } else if (e.type === '결과') {
+                            periodStr = `(${e.periods.join(', ')} 결과)`;
+                        } else if (e.type === '외출') {
+                            periodStr = `(${e.periods.join(', ')} 외출)`;
+                        }
+                    }
+
+                    const josa = getJosa(e.detail);
+                    const detailPart = e.detail ? `${e.detail}${josa} 인한 ` : '';
+                    
+                    let defaultText = `${detailPart}${typeString}${periodStr}/${e.contact}/${e.doc}`;
+                    
+                    if(e.type === '결석' || e.type === '외출') {
+                        defaultText = `${detailPart}${typeString}/${e.contact}/${e.doc}`; 
+                    } else if(e.type === '결과') {
+                        defaultText = `${detailPart}${typeString}(${e.periods.join(', ')} 결과)/${e.contact}/${e.doc}`;
+                    }
+
+                    defaultText = defaultText.replace(/\/\//g, '/').replace(/\/$/, '');
+
+                    const inputId = `neis-input-${e.id}`;
+                    
+                    html += `
+                        <div class="flex flex-col sm:flex-row items-center gap-3 bg-blue-50 p-3 rounded-lg border border-blue-100 shadow-sm">
+                            <div class="w-full sm:w-28 shrink-0 flex flex-row sm:flex-col justify-between sm:justify-start items-center sm:items-start">
+                                <span class="font-bold text-gray-700">${dateString}</span>
+                                <span class="text-xs text-blue-600 font-bold bg-white px-2 py-0.5 rounded border border-blue-200 mt-1">${typeString}</span>
+                            </div>
+                            <input type="text" id="${inputId}" value="${defaultText}" class="flex-1 w-full border border-gray-300 rounded px-3 py-2 text-sm focus:ring-2 focus:ring-blue-500 outline-none transition-shadow">
+                            <button onclick="copyNeisText('${inputId}')" class="w-full sm:w-auto bg-blue-600 text-white px-4 py-2 rounded shadow-sm hover:bg-blue-700 transition font-bold text-sm shrink-0">
+                                복사
+                            </button>
+                        </div>
+                    `;
+                });
+                
+                html += `</div></div>`;
+            }
+            document.getElementById('neisContainer').innerHTML = html || '<div class="text-center py-10 text-gray-400 font-medium">데이터가 없습니다.</div>';
+        }
+
+        function copyNeisText(inputId) {
+            const inputEl = document.getElementById(inputId);
+            inputEl.select();
+            document.execCommand('copy');
+            showToast("복사되었습니다.");
+        }
+
         // 누적관리
         function renderStats() {
             const sidebar = document.getElementById('statsStudentSidebar');
@@ -646,6 +757,8 @@
             const now = new Date();
             document.getElementById('selectedDate').value = now.toISOString().slice(0, 10);
             document.getElementById('currentMonth').value = now.toISOString().slice(0, 7);
+            const neisMonthEl = document.getElementById('neisMonth');
+            if(neisMonthEl) neisMonthEl.value = now.toISOString().slice(0, 7);
             updateTeacherUI();
             switchTab('daily');
         };
